@@ -268,6 +268,19 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+  if(err.code === 'failed-precondition'){
+    console.warn('Offline persistence only works in one tab at a time.');
+  } else if(err.code === 'unimplemented'){
+    console.warn('This browser does not support offline persistence.');
+  }
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker failed:', err));
+  });
+}
 
 const OWNER_UID = 'ssrUTUyuyfQSYFLVyXS9qZq4nS02';
 
@@ -315,8 +328,8 @@ auth.onAuthStateChanged((user) => {
     document.getElementById('appShell').style.display = 'block';
     document.getElementById('roleBadge').textContent = currentRole === 'owner' ? 'Owner' : 'Field';
     document.getElementById('userSub').textContent = user.email + ' · ' + (currentRole==='owner' ? 'full access' : 'your entries only');
-    document.getElementById('exportBar').style.display = currentRole === 'owner' ? 'flex' : 'none';
-    document.body.style.paddingBottom = currentRole === 'owner' ? '100px' : '90px';
+    document.getElementById('exportBar').style.display = 'flex';
+    document.body.style.paddingBottom = '100px';
     subscribeClients();
   } else {
     currentUser = null;
