@@ -143,6 +143,31 @@
   .settingsnote{ font-size:12px; color:var(--ink-soft); line-height:1.5; margin:10px 0 16px; }
   .settingsnote a{color:var(--brass);}
 
+  .card-company{ font-size:12.5px; color:var(--ink-soft); font-weight:600; margin-top:1px; }
+  .stars{ display:inline-flex; gap:1px; margin-top:6px; margin-left:8px; vertical-align:middle; }
+  .stars .star{ font-size:14px; color:#D8CFB4; }
+  .stars .star.on{ color:var(--brass); }
+  .stars.picker .star{ font-size:24px; cursor:pointer; }
+  .capacity-line{ font-size:12.5px; color:var(--ink-soft); margin-top:6px; background:rgba(63,106,130,0.07); padding:6px 10px; border-radius:8px; }
+  .capacity-line b{color:var(--ink);font-weight:600;}
+  .top-products{ font-size:12.5px; color:var(--stamp-carpenter); margin-top:6px; font-style:italic; }
+  .card-actions button.bill{color:#6A4FA0;}
+  .balance-tag{ font-size:11.5px; font-weight:700; padding:2px 7px; border-radius:6px; margin-left:6px; }
+  .balance-tag.due{ background:rgba(162,59,46,0.12); color:var(--danger); }
+  .balance-tag.clear{ background:rgba(31,122,77,0.12); color:#1F7A4D; }
+  .billing-log{ margin-top:10px; border-top:1px dashed var(--paper-line); padding-top:8px; }
+  .billing-log-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+  .billing-log-title button{ background:var(--brass); color:#20180A; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; }
+  .billing-entry{ font-size:12.5px; color:var(--ink); padding:5px 0; border-bottom:1px solid rgba(44,58,75,0.06); display:flex; justify-content:space-between; }
+  .billing-entry:last-child{border-bottom:none;}
+  .billing-entry .bamt.bill{color:var(--danger);}
+  .billing-entry .bamt.payment{color:#1F7A4D;}
+  .billing-summary{ font-size:12.5px; font-weight:700; margin-top:6px; padding-top:6px; border-top:1px solid rgba(44,58,75,0.1); display:flex; justify-content:space-between; }
+  .typepicker{display:flex;gap:8px;margin-bottom:14px;}
+  .typepicker .typeopt{ flex:1; text-align:center; padding:10px 0; border-radius:9px; border:1px solid var(--paper-line); background:#fff; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); }
+  .typepicker .typeopt.sel.bill{ background:var(--danger); color:#fff; border-color:var(--danger); }
+  .typepicker .typeopt.sel.payment{ background:#1F7A4D; color:#fff; border-color:#1F7A4D; }
+
   .visitbanner{ display:none; background:var(--brass); color:#20180A; padding:10px 16px; font-size:13px; font-weight:700; align-items:center; justify-content:space-between; gap:10px; position:sticky; top:0; z-index:19; }
   .visitbanner.show{display:flex;}
   .visitbanner button{ background:#20180A; color:var(--brass-soft); border:none; padding:7px 12px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
@@ -223,10 +248,15 @@
     <img id="scanPreview" class="scanpreview" alt="Scanned card preview">
     <div class="scanstatus" id="scanStatus" style="display:none;"></div>
     <div class="field"><label>Name</label><input id="f_name" type="text" placeholder="Client or firm name"></div>
+    <div class="field"><label>Company Name (optional)</label><input id="f_company" type="text" placeholder="e.g. Noor Interiors Pvt Ltd"></div>
     <div class="field"><label>Phone</label><input id="f_phone" type="tel" placeholder="10-digit mobile number"></div>
     <div class="field"><label>Category</label><div class="catpicker" id="catPicker"></div></div>
     <div class="field"><label>Area / Location</label><input id="f_area" type="text" placeholder="e.g. Rajbagh, Srinagar"></div>
     <div class="field"><label>Requirement / Notes</label><textarea id="f_notes" placeholder="What do they need? e.g. 3 wardrobes, walnut finish"></textarea></div>
+    <div class="field"><label>Most Demanded Products (optional)</label><input id="f_topproducts" type="text" placeholder="e.g. concealed hinges, drawer channels"></div>
+    <div class="field"><label>Liquidation Capacity — Quantity (optional)</label><input id="f_capqty" type="text" placeholder="e.g. 500 pieces / month"></div>
+    <div class="field"><label>Liquidation Capacity — Amount (optional)</label><input id="f_capamt" type="text" placeholder="e.g. ₹1,50,000 / month"></div>
+    <div class="field"><label>Payment Reliability</label><div class="stars picker" id="ratingPicker"></div></div>
     <div class="sheet-actions">
       <button class="cancel" id="cancelSheet">Cancel</button>
       <button class="save" id="saveSheet">Save Client</button>
@@ -254,6 +284,23 @@
     <div class="sheet-actions">
       <button class="cancel" id="clearApiKey">Remove Key</button>
       <button class="save" id="saveApiKey">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="billingOverlay">
+  <div class="sheet">
+    <button class="close-x" id="closeBilling">✕</button>
+    <h2>Add Billing Entry</h2>
+    <div class="typepicker" id="billTypePicker">
+      <div class="typeopt sel bill" data-type="bill">Bill Raised</div>
+      <div class="typeopt payment" data-type="payment">Payment Received</div>
+    </div>
+    <div class="field"><label>Amount (₹)</label><input id="f_billamt" type="number" placeholder="e.g. 25000"></div>
+    <div class="field"><label>Note (optional)</label><input id="f_billnote" type="text" placeholder="e.g. Invoice #12, or partial payment"></div>
+    <div class="sheet-actions">
+      <button class="cancel" id="cancelBilling">Cancel</button>
+      <button class="save" id="saveBilling">Save Entry</button>
     </div>
   </div>
 </div>
@@ -303,6 +350,36 @@ let pickedCategory = categories[0];
 let pendingLocation = null;
 let activeVisit = null;
 let unsubscribe = null;
+let pendingRating = 0;
+let billingClientId = null;
+let pickedBillType = 'bill';
+
+function renderRatingPicker(){
+  const wrap = document.getElementById('ratingPicker');
+  wrap.innerHTML = '';
+  for(let i=1;i<=5;i++){
+    const s = document.createElement('span');
+    s.className = 'star' + (i<=pendingRating ? ' on' : '');
+    s.textContent = '★';
+    s.onclick = () => { pendingRating = (pendingRating===i) ? 0 : i; renderRatingPicker(); };
+    wrap.appendChild(s);
+  }
+}
+
+function starsHtml(rating){
+  rating = rating || 0;
+  let html = '<span class="stars">';
+  for(let i=1;i<=5;i++){ html += `<span class="star${i<=rating?' on':''}">★</span>`; }
+  html += '</span>';
+  return html;
+}
+
+function billingBalance(c){
+  const entries = c.billing || [];
+  let total = 0;
+  entries.forEach(e => { total += (e.type==='bill' ? Number(e.amount||0) : -Number(e.amount||0)); });
+  return total;
+}
 
 function saveCats(){ localStorage.setItem(CATS_KEY, JSON.stringify(categories)); }
 
@@ -437,11 +514,13 @@ function renderList(){
     const canEdit = currentRole === 'owner';
     const card = document.createElement('div');
     card.className = 'card ' + catClass(c.category);
+    const balance = billingBalance(c);
     card.innerHTML = `
       <div class="card-top">
         <div>
           <div class="entry-no">Entry #${String(idx+1).padStart(3,'0')}</div>
-          <div class="card-name">${escapeHtml(c.name)}</div>
+          <div class="card-name">${escapeHtml(c.name)} ${starsHtml(c.rating)}</div>
+          ${c.company ? `<div class="card-company">${escapeHtml(c.company)}</div>` : ''}
           <div class="stamp">${escapeHtml(c.category)}</div>
           ${currentRole==='owner' && c.addedByEmail ? `<div class="addedby">Added by ${escapeHtml(c.addedByEmail)}</div>` : ''}
         </div>
@@ -451,6 +530,8 @@ function renderList(){
         ${c.area ? `<span><b>Area:</b> ${escapeHtml(c.area)}</span>` : ''}
       </div>
       ${c.notes ? `<div class="needs">${escapeHtml(c.notes)}</div>` : ''}
+      ${c.topProducts ? `<div class="top-products">★ Most demanded: ${escapeHtml(c.topProducts)}</div>` : ''}
+      ${(c.capQty || c.capAmount) ? `<div class="capacity-line">${c.capQty ? `<b>Capacity:</b> ${escapeHtml(c.capQty)}` : ''}${c.capQty && c.capAmount ? ' · ' : ''}${c.capAmount ? `<b>Value:</b> ${escapeHtml(c.capAmount)}` : ''}</div>` : ''}
       <div class="card-actions">
         ${c.phone ? `<button class="wa" data-act="wa">WhatsApp</button>` : ''}
         ${c.phone ? `<button class="call" data-act="call">Call</button>` : ''}
@@ -462,7 +543,11 @@ function renderList(){
         <button class="visit" data-act="visit" ${activeVisit && activeVisit.clientId!==c.id ? 'disabled' : ''}>${activeVisit && activeVisit.clientId===c.id ? '⏱ Visit in progress' : '▶ Start Visit'}</button>
         <button class="hist" data-act="hist">History (${(c.visits||[]).length})</button>
       </div>
+      <div class="card-actions row2">
+        <button class="bill" data-act="bill">💰 Billing${balance!==0 ? `<span class="balance-tag ${balance>0?'due':'clear'}">${balance>0?'Due ₹'+balance.toLocaleString('en-IN'):'Adv ₹'+Math.abs(balance).toLocaleString('en-IN')}</span>` : ''}</button>
+      </div>
       <div class="visit-log" id="hist-${c.id}" style="display:none;"></div>
+      <div class="billing-log" id="billhist-${c.id}" style="display:none;"></div>
     `;
     if(canEdit){
       card.querySelector('[data-act="edit"]').addEventListener('click', () => openEdit(c.id));
@@ -479,6 +564,7 @@ function renderList(){
       if(activeVisit && activeVisit.clientId===c.id) endVisit(); else startVisit(c.id);
     });
     card.querySelector('[data-act="hist"]').addEventListener('click', () => toggleHistory(c.id));
+    card.querySelector('[data-act="bill"]').addEventListener('click', () => toggleBilling(c.id));
     list.appendChild(card);
   });
 }
@@ -593,20 +679,91 @@ function toggleHistory(id){
   panel.style.display = 'block';
 }
 
+// ---------- BILLING ----------
+function toggleBilling(id){
+  const panel = document.getElementById('billhist-' + id);
+  if(!panel) return;
+  const showing = panel.style.display !== 'none';
+  if(showing){ panel.style.display = 'none'; return; }
+  renderBillingPanel(id);
+  panel.style.display = 'block';
+}
+
+function renderBillingPanel(id){
+  const panel = document.getElementById('billhist-' + id);
+  if(!panel) return;
+  const c = clients.find(x => x.id===id);
+  const entries = (c.billing || []).slice().reverse();
+  const balance = billingBalance(c);
+  let html = `<div class="billing-log-title"><span>Billing ledger</span><button data-openbill="${id}">+ Add Entry</button></div>`;
+  if(!entries.length){
+    html += `<div class="billing-entry">No billing entries yet.</div>`;
+  } else {
+    html += entries.map(e => `
+      <div class="billing-entry">
+        <span>${new Date(e.date).toLocaleDateString('en-IN')} · ${escapeHtml(e.note || (e.type==='bill'?'Bill raised':'Payment received'))}</span>
+        <span class="bamt ${e.type}">${e.type==='bill'?'+':'−'}₹${Number(e.amount||0).toLocaleString('en-IN')}</span>
+      </div>
+    `).join('');
+  }
+  html += `<div class="billing-summary"><span>Balance</span><span>${balance>0 ? 'Due ₹'+balance.toLocaleString('en-IN') : (balance<0 ? 'Advance ₹'+Math.abs(balance).toLocaleString('en-IN') : 'Settled'  )}</span></div>`;
+  panel.innerHTML = html;
+  panel.querySelector('[data-openbill]').addEventListener('click', () => openBillingSheet(id));
+}
+
+function openBillingSheet(id){
+  billingClientId = id;
+  pickedBillType = 'bill';
+  renderBillTypePicker();
+  document.getElementById('f_billamt').value = '';
+  document.getElementById('f_billnote').value = '';
+  document.getElementById('billingOverlay').classList.add('open');
+}
+
+function renderBillTypePicker(){
+  document.querySelectorAll('#billTypePicker .typeopt').forEach(el => {
+    el.classList.toggle('sel', el.dataset.type === pickedBillType);
+  });
+}
+document.querySelectorAll('#billTypePicker .typeopt').forEach(el => {
+  el.addEventListener('click', () => { pickedBillType = el.dataset.type; renderBillTypePicker(); });
+});
+document.getElementById('closeBilling').onclick = () => document.getElementById('billingOverlay').classList.remove('open');
+document.getElementById('cancelBilling').onclick = () => document.getElementById('billingOverlay').classList.remove('open');
+document.getElementById('billingOverlay').addEventListener('click', (e) => { if(e.target.id==='billingOverlay') e.currentTarget.classList.remove('open'); });
+document.getElementById('saveBilling').onclick = () => {
+  const amount = Number(document.getElementById('f_billamt').value);
+  const note = document.getElementById('f_billnote').value.trim();
+  if(!amount || amount<=0){ alert('Enter a valid amount.'); return; }
+  const entry = { type: pickedBillType, amount, note, date: new Date().toISOString() };
+  db.collection('clients').doc(billingClientId).update({
+    billing: firebase.firestore.FieldValue.arrayUnion(entry)
+  }).then(() => {
+    document.getElementById('billingOverlay').classList.remove('open');
+    setTimeout(() => renderBillingPanel(billingClientId), 300);
+  }).catch(e => alert('Could not save billing entry: ' + e.message));
+};
+
 // ---------- ADD / EDIT FORM ----------
 function openOverlay(){ document.getElementById('overlay').classList.add('open'); }
 function closeOverlay(){ document.getElementById('overlay').classList.remove('open'); }
 
 function resetForm(){
   document.getElementById('f_name').value='';
+  document.getElementById('f_company').value='';
   document.getElementById('f_phone').value='';
   document.getElementById('f_area').value='';
   document.getElementById('f_notes').value='';
+  document.getElementById('f_topproducts').value='';
+  document.getElementById('f_capqty').value='';
+  document.getElementById('f_capamt').value='';
   document.getElementById('scanPreview').style.display='none';
   document.getElementById('scanPreview').src='';
   document.getElementById('scanStatus').style.display='none';
   pickedCategory = categories[0];
   renderCatPicker();
+  pendingRating = 0;
+  renderRatingPicker();
   editingId = null;
   pendingLocation = null;
   document.getElementById('sheetTitle').textContent = 'Add Client';
@@ -632,11 +789,17 @@ function openEdit(id){
   if(!c) return;
   editingId = id;
   document.getElementById('f_name').value = c.name;
+  document.getElementById('f_company').value = c.company || '';
   document.getElementById('f_phone').value = c.phone;
   document.getElementById('f_area').value = c.area;
   document.getElementById('f_notes').value = c.notes;
+  document.getElementById('f_topproducts').value = c.topProducts || '';
+  document.getElementById('f_capqty').value = c.capQty || '';
+  document.getElementById('f_capamt').value = c.capAmount || '';
   pickedCategory = c.category;
   renderCatPicker();
+  pendingRating = c.rating || 0;
+  renderRatingPicker();
   document.getElementById('autoLocStatus').style.display = 'none';
   pendingLocation = null;
   document.getElementById('sheetTitle').textContent = 'Edit Client';
@@ -655,24 +818,30 @@ document.getElementById('overlay').addEventListener('click', (e) => { if(e.targe
 
 document.getElementById('saveSheet').onclick = () => {
   const name = document.getElementById('f_name').value.trim();
+  const company = document.getElementById('f_company').value.trim();
   const phone = document.getElementById('f_phone').value.trim();
   const area = document.getElementById('f_area').value.trim();
   const notes = document.getElementById('f_notes').value.trim();
+  const topProducts = document.getElementById('f_topproducts').value.trim();
+  const capQty = document.getElementById('f_capqty').value.trim();
+  const capAmount = document.getElementById('f_capamt').value.trim();
+  const rating = pendingRating;
   if(!name){ alert('Please enter a name.'); return; }
 
   if(editingId){
-    db.collection('clients').doc(editingId).update({ name, phone, area, notes, category: pickedCategory })
+    db.collection('clients').doc(editingId).update({ name, company, phone, area, notes, topProducts, capQty, capAmount, rating, category: pickedCategory })
       .then(() => { closeOverlay(); })
       .catch(e => alert('Could not save: ' + e.message));
   } else {
     db.collection('clients').add({
-      name, phone, area, notes,
+      name, company, phone, area, notes, topProducts, capQty, capAmount, rating,
       category: pickedCategory,
       addedBy: currentUser.uid,
       addedByEmail: currentUser.email,
       createdAt: new Date().toISOString(),
       location: pendingLocation,
-      visits: []
+      visits: [],
+      billing: []
     }).then(() => { closeOverlay(); })
       .catch(e => alert('Could not save: ' + e.message));
   }
@@ -682,13 +851,15 @@ document.getElementById('search').addEventListener('input', renderList);
 
 // ---------- CSV EXPORT (owner only) ----------
 function toCSV(rows){
-  const headers = ['Name','Phone','Category','Area','Requirement/Notes','Date Added','Added By','Latitude','Longitude','Visit Count','Last Visit Date'];
+  const headers = ['Name','Company','Phone','Category','Area','Requirement/Notes','Most Demanded Products','Capacity (Qty)','Capacity (Amount)','Payment Rating','Billing Balance','Date Added','Added By','Latitude','Longitude','Visit Count','Last Visit Date'];
   const lines = [headers.join(',')];
   rows.forEach(c => {
     const visits = c.visits || [];
     const lastVisit = visits.length ? new Date(visits[visits.length-1].date).toLocaleDateString('en-IN') : '';
     const row = [
-      c.name, c.phone, c.category, c.area, c.notes,
+      c.name, c.company, c.phone, c.category, c.area, c.notes,
+      c.topProducts, c.capQty, c.capAmount, c.rating || 0,
+      billingBalance(c),
       new Date(c.createdAt).toLocaleDateString('en-IN'),
       c.addedByEmail || '',
       c.location ? c.location.lat : '',
