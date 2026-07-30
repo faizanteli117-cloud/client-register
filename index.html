@@ -64,6 +64,13 @@
   .chip{ flex:0 0 auto; padding:7px 14px; border-radius:999px; font-size:12.5px; font-weight:600; border:1px solid rgba(255,255,255,0.25); background:transparent; color:#D9DEE3; cursor:pointer; white-space:nowrap; }
   .chip.active{ background:var(--brass); border-color:var(--brass); color:#20180A; }
   .chip.addchip{ color:var(--brass-soft); border-style:dashed; }
+  .areaFilterWrap{ margin-top:8px; }
+  .areaFilterWrap select{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.06); color:#EDEFF2; font-size:12.5px; }
+  .areaFilterWrap select option{ color:#20180A; }
+  .type-badge{ display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:6px; margin-left:6px; vertical-align:middle; background:rgba(63,106,130,0.12); color:var(--stamp-electrician,#3F6A82); }
+  .typepicker2{display:flex;gap:8px;margin-bottom:2px;flex-wrap:wrap;}
+  .typepicker2 .typeopt2{ padding:8px 12px; border-radius:9px; border:1px solid var(--paper-line); background:#fff; font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-soft); }
+  .typepicker2 .typeopt2.sel{ background:var(--ink); color:#fff; border-color:var(--ink); }
   .headerbtn{ position:absolute; top:20px; right:18px; background:none; border:none; color:var(--paper); font-size:18px; cursor:pointer; opacity:.85; }
   .rolebadge{
     position:absolute; top:23px; right:92px;
@@ -212,6 +219,8 @@
     <input id="search" type="text" placeholder="Search name, phone, or area...">
   </div>
   <div class="filters" id="catFilters"></div>
+  <div class="filters" id="typeFilters"></div>
+  <div class="areaFilterWrap"><select id="areaFilter"><option value="">All Areas</option></select></div>
 </header>
 
 <div class="visitbanner" id="visitBanner">
@@ -251,6 +260,7 @@
     <div class="field"><label>Company Name (optional)</label><input id="f_company" type="text" placeholder="e.g. Noor Interiors Pvt Ltd"></div>
     <div class="field"><label>Phone</label><input id="f_phone" type="tel" placeholder="10-digit mobile number"></div>
     <div class="field"><label>Category</label><div class="catpicker" id="catPicker"></div></div>
+    <div class="field"><label>Business Type (optional)</label><div class="typepicker2" id="bizTypePicker"></div></div>
     <div class="field"><label>Area / Location</label><input id="f_area" type="text" placeholder="e.g. Rajbagh, Srinagar"></div>
     <div class="field"><label>Requirement / Notes</label><textarea id="f_notes" placeholder="What do they need? e.g. 3 wardrobes, walnut finish"></textarea></div>
     <div class="field"><label>Most Demanded Products (optional)</label><input id="f_topproducts" type="text" placeholder="e.g. concealed hinges, drawer channels"></div>
@@ -339,12 +349,15 @@ const APIKEY_KEY = 'client_register_apikey_v1';
 const PROVIDER_KEY = 'client_register_provider_v1';
 const CATS_KEY = 'client_register_categories_v1';
 const DEFAULT_CATS = ['Interior','Hardware','Carpenter','Electrician','Plumber'];
+const BIZ_TYPES = ['Retailer','Wholesaler','Distributor'];
 
 let currentUser = null;
 let currentRole = 'employee';
 let clients = [];
 let categories = JSON.parse(localStorage.getItem(CATS_KEY) || 'null') || DEFAULT_CATS.slice();
 let activeFilter = 'All';
+let activeTypeFilter = 'All';
+let pickedBizType = '';
 let editingId = null;
 let pickedCategory = categories[0];
 let pendingLocation = null;
@@ -430,6 +443,8 @@ function subscribeClients(){
     snap.forEach(doc => clients.push({ id: doc.id, ...doc.data() }));
     clients.sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
     renderFilters();
+    renderTypeFilters();
+    renderAreaFilter();
     renderList();
   }, (err) => {
     console.error(err);
@@ -476,6 +491,43 @@ function renderFilters(){
   wrap.appendChild(addBtn);
 }
 
+function renderTypeFilters(){
+  const wrap = document.getElementById('typeFilters');
+  wrap.innerHTML = '';
+  const all = document.createElement('button');
+  all.className = 'chip' + (activeTypeFilter==='All' ? ' active' : '');
+  all.textContent = 'All Types';
+  all.onclick = () => { activeTypeFilter='All'; renderTypeFilters(); renderList(); };
+  wrap.appendChild(all);
+  BIZ_TYPES.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (activeTypeFilter===t ? ' active' : '');
+    b.textContent = t;
+    b.onclick = () => { activeTypeFilter=t; renderTypeFilters(); renderList(); };
+    wrap.appendChild(b);
+  });
+}
+
+function renderAreaFilter(){
+  const sel = document.getElementById('areaFilter');
+  const current = sel.value;
+  const areas = [...new Set(clients.map(c => (c.area||'').trim()).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Areas</option>' + areas.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  if(areas.includes(current)) sel.value = current;
+}
+
+function renderBizTypePicker(){
+  const wrap = document.getElementById('bizTypePicker');
+  wrap.innerHTML = '';
+  BIZ_TYPES.forEach(t => {
+    const b = document.createElement('div');
+    b.className = 'typeopt2' + (pickedBizType===t ? ' sel' : '');
+    b.textContent = t;
+    b.onclick = () => { pickedBizType = (pickedBizType===t) ? '' : t; renderBizTypePicker(); };
+    wrap.appendChild(b);
+  });
+}
+
 function renderCatPicker(){
   const wrap = document.getElementById('catPicker');
   wrap.innerHTML = '';
@@ -490,8 +542,11 @@ function renderCatPicker(){
 
 function getFiltered(){
   const q = document.getElementById('search').value.trim().toLowerCase();
+  const areaSel = document.getElementById('areaFilter').value;
   return clients.filter(c => {
     if(activeFilter!=='All' && c.category!==activeFilter) return false;
+    if(activeTypeFilter!=='All' && c.bizType!==activeTypeFilter) return false;
+    if(areaSel && (c.area||'').trim()!==areaSel) return false;
     if(!q) return true;
     return (c.name||'').toLowerCase().includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.area||'').toLowerCase().includes(q);
   });
@@ -521,7 +576,7 @@ function renderList(){
           <div class="entry-no">Entry #${String(idx+1).padStart(3,'0')}</div>
           <div class="card-name">${escapeHtml(c.name)} ${starsHtml(c.rating)}</div>
           ${c.company ? `<div class="card-company">${escapeHtml(c.company)}</div>` : ''}
-          <div class="stamp">${escapeHtml(c.category)}</div>
+          <div class="stamp">${escapeHtml(c.category)}</div>${c.bizType ? `<span class="type-badge">${escapeHtml(c.bizType)}</span>` : ''}
           ${currentRole==='owner' && c.addedByEmail ? `<div class="addedby">Added by ${escapeHtml(c.addedByEmail)}</div>` : ''}
         </div>
       </div>
@@ -584,13 +639,35 @@ function geoErrorMessage(err){
   return 'Could not get location: ' + (err && err.message ? err.message : 'permission denied') + '. Check location permission for this page.';
 }
 
+function reverseGeocode(lat, lng){
+  return fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=15&addressdetails=1`)
+    .then(r => r.json())
+    .then(data => {
+      const a = data.address || {};
+      const primary = a.suburb || a.neighbourhood || a.residential || a.village || a.town || a.road;
+      const city = a.city || a.town || a.county;
+      const parts = [];
+      if(primary) parts.push(primary);
+      if(city && city !== primary) parts.push(city);
+      return parts.join(', ') || data.display_name || '';
+    })
+    .catch(() => '');
+}
+
 function saveLocation(id){
   if(!navigator.geolocation){ alert('Location is not available on this device/browser.'); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      db.collection('clients').doc(id).update({
-        location: { lat: pos.coords.latitude, lng: pos.coords.longitude, savedAt: new Date().toISOString() }
-      }).catch(e => alert('Could not save location: ' + e.message));
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      const updateData = { location: { lat, lng, savedAt: new Date().toISOString() } };
+      reverseGeocode(lat, lng).then(areaName => {
+        const c = clients.find(x => x.id===id);
+        if(areaName && (!c || !c.area || !c.area.trim())){
+          updateData.area = areaName;
+        }
+        db.collection('clients').doc(id).update(updateData)
+          .catch(e => alert('Could not save location: ' + e.message));
+      });
     },
     (err) => alert(geoErrorMessage(err)),
     { enableHighAccuracy:true, timeout:15000 }
@@ -762,6 +839,8 @@ function resetForm(){
   document.getElementById('scanStatus').style.display='none';
   pickedCategory = categories[0];
   renderCatPicker();
+  pickedBizType = '';
+  renderBizTypePicker();
   pendingRating = 0;
   renderRatingPicker();
   editingId = null;
@@ -776,8 +855,16 @@ function captureAutoLocation(){
   status.textContent = '📍 Getting this location…';
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      pendingLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, savedAt: new Date().toISOString() };
-      status.textContent = '📍 Location captured — will be saved with this client.';
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      pendingLocation = { lat, lng, savedAt: new Date().toISOString() };
+      status.textContent = '📍 Location captured — detecting area…';
+      reverseGeocode(lat, lng).then(areaName => {
+        status.textContent = '📍 Location captured — will be saved with this client.';
+        const areaField = document.getElementById('f_area');
+        if(areaName && !areaField.value.trim()){
+          areaField.value = areaName;
+        }
+      });
     },
     (err) => { pendingLocation = null; status.textContent = '📍 ' + geoErrorMessage(err); },
     { enableHighAccuracy:true, timeout:15000 }
@@ -798,6 +885,8 @@ function openEdit(id){
   document.getElementById('f_capamt').value = c.capAmount || '';
   pickedCategory = c.category;
   renderCatPicker();
+  pickedBizType = c.bizType || '';
+  renderBizTypePicker();
   pendingRating = c.rating || 0;
   renderRatingPicker();
   document.getElementById('autoLocStatus').style.display = 'none';
@@ -826,15 +915,16 @@ document.getElementById('saveSheet').onclick = () => {
   const capQty = document.getElementById('f_capqty').value.trim();
   const capAmount = document.getElementById('f_capamt').value.trim();
   const rating = pendingRating;
+  const bizType = pickedBizType;
   if(!name){ alert('Please enter a name.'); return; }
 
   if(editingId){
-    db.collection('clients').doc(editingId).update({ name, company, phone, area, notes, topProducts, capQty, capAmount, rating, category: pickedCategory })
+    db.collection('clients').doc(editingId).update({ name, company, phone, area, notes, topProducts, capQty, capAmount, rating, bizType, category: pickedCategory })
       .then(() => { closeOverlay(); })
       .catch(e => alert('Could not save: ' + e.message));
   } else {
     db.collection('clients').add({
-      name, company, phone, area, notes, topProducts, capQty, capAmount, rating,
+      name, company, phone, area, notes, topProducts, capQty, capAmount, rating, bizType,
       category: pickedCategory,
       addedBy: currentUser.uid,
       addedByEmail: currentUser.email,
@@ -848,16 +938,17 @@ document.getElementById('saveSheet').onclick = () => {
 };
 
 document.getElementById('search').addEventListener('input', renderList);
+document.getElementById('areaFilter').addEventListener('change', renderList);
 
 // ---------- CSV EXPORT (owner only) ----------
 function toCSV(rows){
-  const headers = ['Name','Company','Phone','Category','Area','Requirement/Notes','Most Demanded Products','Capacity (Qty)','Capacity (Amount)','Payment Rating','Billing Balance','Date Added','Added By','Latitude','Longitude','Visit Count','Last Visit Date'];
+  const headers = ['Name','Company','Phone','Category','Business Type','Area','Requirement/Notes','Most Demanded Products','Capacity (Qty)','Capacity (Amount)','Payment Rating','Billing Balance','Date Added','Added By','Latitude','Longitude','Visit Count','Last Visit Date'];
   const lines = [headers.join(',')];
   rows.forEach(c => {
     const visits = c.visits || [];
     const lastVisit = visits.length ? new Date(visits[visits.length-1].date).toLocaleDateString('en-IN') : '';
     const row = [
-      c.name, c.company, c.phone, c.category, c.area, c.notes,
+      c.name, c.company, c.phone, c.category, c.bizType, c.area, c.notes,
       c.topProducts, c.capQty, c.capAmount, c.rating || 0,
       billingBalance(c),
       new Date(c.createdAt).toLocaleDateString('en-IN'),
