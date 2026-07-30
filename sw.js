@@ -1,4 +1,4 @@
-const CACHE_NAME = 'client-register-shell-v2';
+const CACHE_NAME = 'client-register-shell-v4';
 const SHELL_URLS = [
   './',
   './index.html',
@@ -36,7 +36,8 @@ self.addEventListener('fetch', (event) => {
     url.includes('generativelanguage.googleapis.com') ||
     url.includes('api.anthropic.com') ||
     url.includes('identitytoolkit.googleapis.com') ||
-    url.includes('securetoken.googleapis.com')
+    url.includes('securetoken.googleapis.com') ||
+    url.includes('nominatim.openstreetmap.org')
   ) {
     return;
   }
