@@ -221,6 +221,10 @@
   <div class="filters" id="catFilters"></div>
   <div class="filters" id="typeFilters"></div>
   <div class="areaFilterWrap"><select id="areaFilter"><option value="">All Areas</option></select></div>
+  <div class="areaFilterWrap" style="display:flex;gap:8px;">
+    <button class="chip" id="nearMeBtn" style="flex:1;border-radius:8px;">📍 Show Dealers Near Me</button>
+    <button class="chip" id="nearMeRefresh" style="flex:0 0 auto;border-radius:8px;display:none;">🔄</button>
+  </div>
 </header>
 
 <div class="visitbanner" id="visitBanner">
@@ -358,6 +362,9 @@ let categories = JSON.parse(localStorage.getItem(CATS_KEY) || 'null') || DEFAULT
 let activeFilter = 'All';
 let activeTypeFilter = 'All';
 let pickedBizType = '';
+const NEARME_KEY = 'client_register_nearme_v1';
+let nearMeActive = localStorage.getItem(NEARME_KEY) === '1';
+let myLoc = null;
 let editingId = null;
 let pickedCategory = categories[0];
 let pendingLocation = null;
@@ -445,7 +452,11 @@ function subscribeClients(){
     renderFilters();
     renderTypeFilters();
     renderAreaFilter();
+    renderNearMeBtn();
     renderList();
+    if(nearMeActive && !myLoc){
+      locateMe().then(loc => { if(loc) renderList(); else { nearMeActive=false; localStorage.setItem(NEARME_KEY,'0'); renderNearMeBtn(); renderList(); } });
+    }
   }, (err) => {
     console.error(err);
     alert('Could not load clients: ' + err.message);
@@ -543,18 +554,75 @@ function renderCatPicker(){
 function getFiltered(){
   const q = document.getElementById('search').value.trim().toLowerCase();
   const areaSel = document.getElementById('areaFilter').value;
-  return clients.filter(c => {
+  let result = clients.filter(c => {
     if(activeFilter!=='All' && c.category!==activeFilter) return false;
     if(activeTypeFilter!=='All' && c.bizType!==activeTypeFilter) return false;
     if(areaSel && (c.area||'').trim()!==areaSel) return false;
     if(!q) return true;
     return (c.name||'').toLowerCase().includes(q) || (c.phone||'').toLowerCase().includes(q) || (c.area||'').toLowerCase().includes(q);
   });
+  if(nearMeActive && myLoc){
+    result = result
+      .filter(c => c.location && c.location.lat!=null && c.location.lng!=null)
+      .map(c => ({ ...c, _distance: distanceKm(myLoc.lat, myLoc.lng, c.location.lat, c.location.lng) }))
+      .sort((a,b) => a._distance - b._distance);
+  }
+  return result;
 }
 
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+
+// ---------- NEAR ME ----------
+function distanceKm(lat1, lng1, lat2, lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function renderNearMeBtn(){
+  const btn = document.getElementById('nearMeBtn');
+  const refreshBtn = document.getElementById('nearMeRefresh');
+  btn.textContent = nearMeActive ? '📍 Near Me: ON (tap to turn off)' : '📍 Show Dealers Near Me';
+  btn.classList.toggle('active', nearMeActive);
+  refreshBtn.style.display = nearMeActive ? 'block' : 'none';
+}
+
+function locateMe(){
+  return new Promise((resolve) => {
+    if(!navigator.geolocation){ alert('Location is not available on this device/browser.'); resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { myLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude }; resolve(myLoc); },
+      (err) => { alert(geoErrorMessage(err)); resolve(null); },
+      { enableHighAccuracy:true, timeout:15000 }
+    );
+  });
+}
+
+document.getElementById('nearMeBtn').addEventListener('click', async () => {
+  if(nearMeActive){
+    nearMeActive = false;
+    localStorage.setItem(NEARME_KEY, '0');
+    renderNearMeBtn();
+    renderList();
+    return;
+  }
+  const loc = await locateMe();
+  if(loc){
+    nearMeActive = true;
+    localStorage.setItem(NEARME_KEY, '1');
+    renderNearMeBtn();
+    renderList();
+  }
+});
+
+document.getElementById('nearMeRefresh').addEventListener('click', async () => {
+  const loc = await locateMe();
+  if(loc) renderList();
+});
 
 // ---------- LIST RENDER ----------
 function renderList(){
@@ -562,8 +630,11 @@ function renderList(){
   const filtered = getFiltered();
   list.innerHTML = '';
   document.getElementById('totalCount').textContent = clients.length;
-  document.getElementById('visibleCount').textContent = filtered.length + (filtered.length===1 ? ' client' : ' clients');
+  document.getElementById('visibleCount').textContent = filtered.length + (filtered.length===1 ? ' client' : ' clients') + (nearMeActive ? ' · sorted by distance' : '');
   document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
+  document.getElementById('emptyState').innerHTML = (nearMeActive && filtered.length===0)
+    ? '<h3>No nearby clients</h3><div>No clients with a saved location nearby yet. Use "📍 Save Location" on client cards when you visit them.</div>'
+    : '<h3>No clients yet</h3><div>Tap the + button to add your first entry.</div>';
 
   filtered.forEach((c, idx) => {
     const canEdit = currentRole === 'owner';
@@ -581,6 +652,7 @@ function renderList(){
         </div>
       </div>
       <div class="meta-line">
+        ${c._distance!=null ? `<span><b>📍</b> ${c._distance < 1 ? Math.round(c._distance*1000)+' m away' : c._distance.toFixed(1)+' km away'}</span>` : ''}
         ${c.phone ? `<span><b>Ph:</b> ${escapeHtml(c.phone)}</span>` : ''}
         ${c.area ? `<span><b>Area:</b> ${escapeHtml(c.area)}</span>` : ''}
       </div>
