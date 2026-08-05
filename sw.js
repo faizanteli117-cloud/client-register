@@ -1,4 +1,4 @@
-const CACHE_NAME = 'client-register-shell-v5';
+const CACHE_NAME = 'client-register-shell-v7';
 const SHELL_URLS = [
   './',
   './index.html',
